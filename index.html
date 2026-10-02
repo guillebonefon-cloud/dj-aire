@@ -67,7 +67,7 @@ main{padding:12px 16px;display:grid;gap:12px}
 </div>
 
 <div id="pvpage" style="display:none"><div class="hd" style="color:var(--pv)">Preview (auriculares)</div>
-<div class="vid"><div id="pv"></div></div><div class="ti" id="pvt">Esperando un tema…</div><span id="pvs" class="pill">Sin conexión con el aire</span></div>
+<div class="vid"><div id="pv"></div></div><div class="ti" id="pvt">Esperando un tema…</div><span id="pvs" class="pill">Sin conexión con el aire</span><div class="row"><button id="e1" class="big b1">Mandar a consola 1 (1)</button><button id="e2" class="big b2">Mandar a consola 2 (2)</button></div></div>
 
 <script>
 const $=s=>document.querySelector(s),MODE=new URLSearchParams(location.search).get('modo')==='preview'?'prev':'aire';
@@ -91,16 +91,16 @@ function boot(){if(booted||!YT_OK||needSetup())return;booted=true;MODE==='aire'?
 boot();
 
 /* ---------- AIRE ---------- */
-let D={},P={},R=[],sel=-1,XF=0,fi,lastQ='';
+let D={},P={},wantDeck=0,R=[],sel=-1,XF=0,fi,lastQ='';
 function bootAire(){
  $('#aire').style.display='block';
  [1,2].forEach(n=>{$('#dk'+n).innerHTML=`<div class="deck d${n}"><div class="hd">Consola ${n}<span class="live" id="l${n}">Al aire</span></div><div class="vid"><div id="p${n}"></div></div><div class="ti" id="t${n}">Vacía</div><div class="bar" id="b${n}" data-n="${n}"><i></i></div><div class="row"><span id="m${n}">0:00 / 0:00</span><button data-a="pp" data-n="${n}">Play / pausa (${n==1?'Q':'W'})</button></div></div>`;
   const d=D[n]={id:'',title:'',pend:false,start:0};
   d.p=new YT.Player('p'+n,{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0,controls:0,disablekb:1,modestbranding:1},
-   events:{onStateChange:e=>{if(e.data===1&&d.pend){d.pend=false;d.p.pauseVideo();d.p.seekTo(d.start,true);setVol()}},
+   events:{onStateChange:e=>{if(e.data===1&&d.pend){d.pend=false;d.p.pauseVideo();const fix=k=>{d.p.seekTo(d.start,true);setTimeout(()=>{if(Math.abs(d.p.getCurrentTime()-d.start)>2&&k<5)fix(k+1)},600)};fix(0);setVol()}},
    onError:e=>{d.pend=false;toast('La consola '+n+' no pudo reproducir ese video (error '+e.data+'). Probá con otra versión.')}}})});
  peer=new Peer('djaire-'+ROOM+'-aire');
- peer.on('connection',c=>{conn=c;c.on('open',()=>setPS(true));c.on('data',m=>{if(m.t==='state'){P=m;drawP()}});c.on('close',()=>setPS(false))});
+ peer.on('connection',c=>{conn=c;c.on('open',()=>setPS(true));c.on('data',m=>{if(m.t==='state'){P=m;drawP()}else if(m.t==='send')loadDeck(m.n,m.id,m.title,Math.floor(m.cur||0));else if(m.t==='at'){if(!m.id){toast('Primero elegí un tema para el preview');return}loadDeck(wantDeck,m.id,m.title,Math.floor(m.cur||0))}});c.on('close',()=>setPS(false))});
  peer.on('disconnected',()=>peer.reconnect());
  peer.on('error',e=>{if(e.type==='unavailable-id')toast('Ya hay otra ventana de aire abierta con ese código de sala.')});
  renderH();setInterval(draw,250);
@@ -117,7 +117,7 @@ function fade(){const to=XF<50?100:0,from=XF,sec=+$('#dur').value,t0=performance
  if(d.pend){toast('La consola '+inn+' todavía está cargando, esperá un segundo');return}
  if(d.p.getPlayerState()!==1)d.p.playVideo();
  clearInterval(fi);fi=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/(sec*1000));XF=from+(to-from)*k;$('#xf').value=XF;setVol();if(k>=1){clearInterval(fi);D[out].p.pauseVideo()}},50)}
-function toDeck(n){if(!P.id){toast('Primero elegí un tema para el preview');return}loadDeck(n,P.id,P.title,Math.floor(P.cur||0));send({t:'pause'})}
+function toDeck(n){if(!conn||!conn.open){toast('El preview no está conectado');return}wantDeck=n;send({t:'at'})}
 function prev(it){if(!send({t:'load',id:it.id,title:it.title,start:0}))toast('El preview no está conectado. Abrí la ventana de preview en Edge.')}
 function draw(){[1,2].forEach(n=>{const d=D[n];if(!d.p||!d.p.getCurrentTime)return;const c=d.pend?0:d.p.getCurrentTime(),u=d.p.getDuration()||0;
  $('#b'+n+' i').style.width=(u?c/u*100:0)+'%';$('#m'+n).textContent=fmt(c)+' / '+fmt(u);
@@ -163,6 +163,7 @@ let pl,cur={id:'',title:''};
 function bootPrev(){
  $('#pvpage').style.display='block';$('#act').classList.add('on');$('#actb').onclick=()=>$('#act').classList.remove('on');
  pl=new YT.Player('pv',{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0},events:{onError:e=>toast('Ese video no se puede reproducir (error '+e.data+').')}});
+ const go=n=>{if(!conn||!conn.open||!cur.id){toast('Falta la conexión con el aire o elegir un tema');return}const c=pl.getCurrentTime();pl.pauseVideo();conn.send({t:'send',n,id:cur.id,title:cur.title,cur:c})};$('#e1').onclick=()=>go(1);$('#e2').onclick=()=>go(2);document.addEventListener('keydown',e=>{if(e.key==='1')go(1);else if(e.key==='2')go(2)});
  peer=new Peer('djaire-'+ROOM+'-prev');
  peer.on('open',tryConn);peer.on('disconnected',()=>peer.reconnect());peer.on('error',()=>{});
  setInterval(()=>{if(!conn||!conn.open)tryConn()},3000);setInterval(report,300)}
@@ -171,7 +172,7 @@ function tryConn(){if(!peer||!peer.open||(conn&&conn.open))return;if(conn)conn.c
  conn=peer.connect('djaire-'+ROOM+'-aire',{reliable:true});conn.on('open',()=>setS(true));conn.on('data',onCmd);conn.on('close',()=>setS(false))}
 function onCmd(m){if(!pl||!pl.getCurrentTime)return;
  if(m.t==='load'){cur={id:m.id,title:m.title};$('#pvt').textContent=m.title;pl.loadVideoById({videoId:m.id,startSeconds:m.start||0})}
- else if(m.t==='pause')pl.pauseVideo();else if(m.t==='play')pl.playVideo();
+ else if(m.t==='at'){const c=pl.getCurrentTime();pl.pauseVideo();conn.send({t:'at',id:cur.id,title:cur.title,cur:c})}else if(m.t==='pause')pl.pauseVideo();else if(m.t==='play')pl.playVideo();
  else if(m.t==='toggle')pl.getPlayerState()===1?pl.pauseVideo():pl.playVideo();
  else if(m.t==='seek')pl.seekTo(Math.max(0,pl.getCurrentTime()+m.d),true);else if(m.t==='seekto')pl.seekTo(m.s,true)}
 function report(){if(conn&&conn.open&&pl&&pl.getCurrentTime)conn.send({t:'state',id:cur.id,title:cur.title,cur:pl.getCurrentTime(),dur:pl.getDuration(),playing:pl.getPlayerState()===1})}
