@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>DJ Aire</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<style>
+:root{--bg:#15161a;--pn:#1f2127;--ln:#33363f;--tx:#f1f2f6;--mu:#9a9fae;--c1:#ffb224;--c2:#2ad0ee;--pv:#5be08a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 "Segoe UI",system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{background:#2b2e37;border:1px solid var(--ln);border-radius:8px;padding:9px 13px;cursor:pointer}
+button:hover{background:#383c48}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #fff;outline-offset:2px}
+input,select{background:#101114;border:1px solid var(--ln);border-radius:8px;padding:9px 12px}
+header{display:flex;gap:10px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--ln)}
+header b{font-size:18px;letter-spacing:.3px}#q{flex:1;font-size:17px}
+.pill{padding:5px 11px;border-radius:99px;border:1px solid var(--ln);color:var(--mu);white-space:nowrap}.pill.ok{color:var(--pv);border-color:var(--pv)}
+#hist{display:flex;gap:6px;flex-wrap:wrap;padding:8px 16px 0}#hist button{padding:4px 10px;font-size:13px;color:var(--mu)}
+main{padding:12px 16px;display:grid;gap:12px}
+.mix{display:grid;grid-template-columns:1fr 210px 1fr;gap:12px}
+.deck,.pv,.mid{background:var(--pn);border:1px solid var(--ln);border-radius:12px;padding:12px}
+.deck.d1{border-top:4px solid var(--c1)}.deck.d2{border-top:4px solid var(--c2)}.pv{border-top:4px solid var(--pv)}
+.hd{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:17px}
+.d1 .hd{color:var(--c1)}.d2 .hd{color:var(--c2)}
+.live{font-size:12px;padding:2px 9px;border-radius:99px;background:#d62b2b;color:#fff;display:none}.live.on{display:inline-block}
+.vid{aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden;margin:8px 0}.vid iframe{width:100%;height:100%}
+.ti{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;min-height:21px}
+.bar{height:14px;background:#101114;border-radius:7px;cursor:pointer;overflow:hidden}.bar i{display:block;height:100%;width:0}
+.d1 .bar i{background:var(--c1)}.d2 .bar i{background:var(--c2)}.pv .bar i{background:var(--pv)}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap}
+.mid{display:flex;flex-direction:column;justify-content:center;gap:14px;text-align:center}
+#xf{width:100%}#fade{font-size:17px;font-weight:700;padding:16px 8px;background:#e8e9ee;color:#15161a;border:0}#fade:hover{background:#fff}
+.pvr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.big{font-weight:600}.b1{border-color:var(--c1);color:var(--c1)}.b2{border-color:var(--c2);color:var(--c2)}
+#res{display:grid;gap:6px}.it{display:flex;gap:12px;align-items:center;background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:6px 10px}
+.it.sel{border-color:#fff}.it img{width:96px;height:54px;object-fit:cover;border-radius:6px}.it div{flex:1;min-width:0}
+.it .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.it small{color:var(--mu)}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#d62b2b;color:#fff;padding:10px 18px;border-radius:10px;display:none;z-index:9}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:8}.ov.on{display:flex}
+.box{background:var(--pn);border:1px solid var(--ln);border-radius:14px;padding:22px;width:min(480px,92vw);display:grid;gap:10px}
+.box label{color:var(--mu);font-size:13px}.keys{color:var(--mu);font-size:13px;padding:0 16px 16px}
+#pvpage{padding:16px;display:grid;gap:12px;max-width:760px;margin:auto}#pvpage .vid{max-height:60vh}
+</style></head><body>
+<div id="toast"></div>
+<div class="ov" id="setup"><div class="box">
+<b style="font-size:18px">Configuración</b>
+<label>Código de sala (el mismo en las dos ventanas; elegí uno propio, por ejemplo tvciudad-musica-472)</label><input id="sroom" autocomplete="off">
+<div id="skeyw"><label>Clave de YouTube</label><input id="skey" autocomplete="off"></div>
+<button id="ssave" class="big">Guardar</button></div></div>
+<div class="ov" id="act"><div class="box"><b style="font-size:18px">Preview de auriculares</b><span>Tocá una vez para activar el sonido de esta ventana.</span><button id="actb" class="big">Activar preview</button></div></div>
+
+<div id="aire" style="display:none">
+<header><b>DJ Aire</b><input id="q" placeholder="Buscar un tema o pegar un link  ( / )" autocomplete="off"><button id="go" class="big">Buscar</button><span id="ps" class="pill">Preview sin conexión</span><button id="cfg" title="Configuración">⚙</button></header>
+<div id="hist"></div>
+<main>
+<div class="mix"><div id="dk1"></div>
+<div class="mid"><div class="big">Crossfader</div><input type="range" id="xf" min="0" max="100" value="0">
+<div class="row" style="justify-content:space-between;margin:0"><span style="color:var(--c1)">1</span><span style="color:var(--c2)">2</span></div>
+<button id="fade" data-a="fade">Fade a consola 2 (F)</button>
+<label style="color:var(--mu);font-size:13px">Duración del fade <select id="dur"><option value="2">2 s</option><option value="4">4 s</option><option value="6" selected>6 s</option><option value="10">10 s</option><option value="15">15 s</option></select></label></div>
+<div id="dk2"></div></div>
+<div class="pv"><div class="hd" style="color:var(--pv)">Preview</div><div class="ti" id="pt">Elegí un tema de la lista y tocá Preview</div>
+<div class="bar" id="pb"><i></i></div>
+<div class="row"><span id="pm">0:00 / 0:00</span><span><button data-a="sk" data-d="-15">-15 s</button> <button data-a="sk" data-d="-5">-5 s</button> <button data-a="ppv" class="big">Play / pausa (espacio)</button> <button data-a="sk" data-d="5">+5 s</button> <button data-a="sk" data-d="15">+15 s</button></span>
+<span><button data-a="to1" class="big b1">Mandar a consola 1 (1)</button> <button data-a="to2" class="big b2">Mandar a consola 2 (2)</button></span></div></div>
+<div id="res"></div>
+</main>
+<div class="keys">Atajos: / buscar · ↑ ↓ elegir · Enter preview · espacio play/pausa del preview · ← → ±5 s (con Shift ±15 s) · 1 y 2 mandan el preview a esa consola · Q y W play/pausa de consola 1 y 2 · F fade</div>
+</div>
+
+<div id="pvpage" style="display:none"><div class="hd" style="color:var(--pv)">Preview (auriculares)</div>
+<div class="vid"><div id="pv"></div></div><div class="ti" id="pvt">Esperando un tema…</div><span id="pvs" class="pill">Sin conexión con el aire</span></div>
+
+<script>
+const $=s=>document.querySelector(s),MODE=new URLSearchParams(location.search).get('modo')==='preview'?'prev':'aire';
+const LS={get:(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let KEY=LS.get('dj_key',''),ROOM=LS.get('dj_room',''),YT_OK=false,booted=false,peer,conn;
+const fmt=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dec=s=>{const t=document.createElement('textarea');t.innerHTML=s;return t.value};
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',4500)}
+const tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';document.head.appendChild(tag);
+window.onYouTubeIframeAPIReady=()=>{YT_OK=true;boot()};
+
+function needSetup(){return !ROOM||(MODE==='aire'&&!KEY)}
+function showSetup(){$('#sroom').value=ROOM;$('#skey').value=KEY;$('#skeyw').style.display=MODE==='aire'?'grid':'none';$('#setup').classList.add('on')}
+$('#ssave').onclick=()=>{const r=$('#sroom').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,''),k=$('#skey').value.trim();
+ if(r.length<4||(MODE==='aire'&&!k)){toast('Completá el código de sala (mínimo 4 letras o números) y la clave');return}
+ LS.set('dj_room',r);if(MODE==='aire')LS.set('dj_key',k);location.reload()};
+$('#cfg').onclick=showSetup;
+if(needSetup())showSetup();
+function boot(){if(booted||!YT_OK||needSetup())return;booted=true;MODE==='aire'?bootAire():bootPrev()}
+boot();
+
+/* ---------- AIRE ---------- */
+let D={},P={},R=[],sel=-1,XF=0,fi,lastQ='';
+function bootAire(){
+ $('#aire').style.display='block';
+ [1,2].forEach(n=>{$('#dk'+n).innerHTML=`<div class="deck d${n}"><div class="hd">Consola ${n}<span class="live" id="l${n}">Al aire</span></div><div class="vid"><div id="p${n}"></div></div><div class="ti" id="t${n}">Vacía</div><div class="bar" id="b${n}" data-n="${n}"><i></i></div><div class="row"><span id="m${n}">0:00 / 0:00</span><button data-a="pp" data-n="${n}">Play / pausa (${n==1?'Q':'W'})</button></div></div>`;
+  const d=D[n]={id:'',title:'',pend:false,start:0};
+  d.p=new YT.Player('p'+n,{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0,controls:0,disablekb:1,modestbranding:1},
+   events:{onStateChange:e=>{if(e.data===1&&d.pend){d.pend=false;d.p.pauseVideo();d.p.seekTo(d.start,true);setVol()}},
+   onError:e=>{d.pend=false;toast('La consola '+n+' no pudo reproducir ese video (error '+e.data+'). Probá con otra versión.')}}})});
+ peer=new Peer('djaire-'+ROOM+'-aire');
+ peer.on('connection',c=>{conn=c;c.on('open',()=>setPS(true));c.on('data',m=>{if(m.t==='state'){P=m;drawP()}});c.on('close',()=>setPS(false))});
+ peer.on('disconnected',()=>peer.reconnect());
+ peer.on('error',e=>{if(e.type==='unavailable-id')toast('Ya hay otra ventana de aire abierta con ese código de sala.')});
+ renderH();setInterval(draw,250);
+}
+function setPS(ok){const e=$('#ps');e.textContent=ok?'Preview conectado':'Preview sin conexión';e.className='pill'+(ok?' ok':'')}
+function send(o){if(conn&&conn.open){conn.send(o);return true}return false}
+function setVol(){const x=XF/100,v=[0,Math.cos(x*Math.PI/2),Math.sin(x*Math.PI/2)];[1,2].forEach(n=>{const d=D[n];if(d.p&&d.p.setVolume&&!d.pend)d.p.setVolume(Math.round(v[n]*100))});}
+$('#xf').oninput=e=>{clearInterval(fi);XF=+e.target.value;setVol()};
+function loadDeck(n,id,title,start){const d=D[n];
+ if(d.p.getPlayerState&&d.p.getPlayerState()===1&&XF*(n===1?-1:1)+(n===1?100:0)>5&&!confirm('La consola '+n+' está sonando al aire. ¿Reemplazar el tema?'))return;
+ clearInterval(fi);d.id=id;d.title=title;d.start=start;d.pend=true;d.p.setVolume(0);d.p.loadVideoById({videoId:id,startSeconds:start});$('#t'+n).textContent=title+(start?'  (desde '+fmt(start)+')':'')}
+function fade(){const to=XF<50?100:0,from=XF,sec=+$('#dur').value,t0=performance.now(),inn=to?2:1,out=to?1:2,d=D[inn];
+ if(!d.id){toast('La consola '+inn+' está vacía');return}
+ if(d.pend){toast('La consola '+inn+' todavía está cargando, esperá un segundo');return}
+ if(d.p.getPlayerState()!==1)d.p.playVideo();
+ clearInterval(fi);fi=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/(sec*1000));XF=from+(to-from)*k;$('#xf').value=XF;setVol();if(k>=1){clearInterval(fi);D[out].p.pauseVideo()}},50)}
+function toDeck(n){if(!P.id){toast('Primero elegí un tema para el preview');return}loadDeck(n,P.id,P.title,Math.floor(P.cur||0));send({t:'pause'})}
+function prev(it){if(!send({t:'load',id:it.id,title:it.title,start:0}))toast('El preview no está conectado. Abrí la ventana de preview en Edge.')}
+function draw(){[1,2].forEach(n=>{const d=D[n];if(!d.p||!d.p.getCurrentTime)return;const c=d.pend?0:d.p.getCurrentTime(),u=d.p.getDuration()||0;
+ $('#b'+n+' i').style.width=(u?c/u*100:0)+'%';$('#m'+n).textContent=fmt(c)+' / '+fmt(u);
+ const vol=n===1?Math.cos(XF/100*Math.PI/2):Math.sin(XF/100*Math.PI/2);$('#l'+n).classList.toggle('on',d.p.getPlayerState()===1&&vol>.05)});
+ $('#fade').textContent=XF<50?'Fade a consola 2 (F)':'Fade a consola 1 (F)'}
+function drawP(){$('#pt').textContent=P.title||'—';$('#pb i').style.width=(P.dur?P.cur/P.dur*100:0)+'%';$('#pm').textContent=fmt(P.cur)+' / '+fmt(P.dur)}
+function renderR(){$('#res').innerHTML=R.map((r,i)=>`<div class="it${i===sel?' sel':''}"><img src="${r.th}" alt=""><div><div class="n">${esc(r.title)}</div><small>${esc(r.ch)}</small></div><button data-a="prev" data-i="${i}" class="big">Preview</button><button data-a="c1" data-i="${i}" class="b1">Consola 1</button><button data-a="c2" data-i="${i}" class="b2">Consola 2</button></div>`).join('')||'<small style="color:var(--mu)">Sin resultados.</small>'}
+function renderH(){$('#hist').innerHTML=LS.get('dj_h',[]).slice(0,12).map((h,i)=>`<button data-a="h" data-i="${i}">${esc(h.q)}</button>`).join('')}
+async function search(q){q=q.trim();if(!q)return;lastQ=q;sel=-1;
+ const m=q.match(/(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/);
+ if(m){R=[{id:m[1],title:'Video de YouTube ('+m[1]+')',ch:'Link pegado',th:'https://i.ytimg.com/vi/'+m[1]+'/default.jpg'}];sel=0;renderR();return}
+ const h=LS.get('dj_h',[]),hit=h.find(x=>x.q===q);if(hit){R=hit.items;sel=0;renderR();return}
+ try{const r=await fetch('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=8&q='+encodeURIComponent(q)+'&key='+encodeURIComponent(KEY));const j=await r.json();
+  if(j.error){toast('YouTube: '+j.error.message);return}
+  R=j.items.map(i=>({id:i.id.videoId,title:dec(i.snippet.title),ch:dec(i.snippet.channelTitle),th:i.snippet.thumbnails.default.url}));
+  h.unshift({q,items:R});LS.set('dj_h',h.slice(0,30));renderH();sel=0;renderR()}catch(e){toast('No se pudo buscar. Revisá la conexión.')}}
+$('#go').onclick=()=>search($('#q').value);
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a],.bar');if(!b||MODE!=='aire')return;
+ if(b.classList.contains('bar')){const f=(e.clientX-b.getBoundingClientRect().left)/b.offsetWidth;
+  if(b.id==='pb'){if(P.dur)send({t:'seekto',s:f*P.dur})}else{const d=D[b.dataset.n];d.p.seekTo(f*d.p.getDuration(),true)}return}
+ const a=b.dataset.a,i=+b.dataset.i,n=+b.dataset.n;
+ if(a==='prev')prev(R[i]);else if(a==='c1'||a==='c2')loadDeck(a==='c1'?1:2,R[i].id,R[i].title,0);
+ else if(a==='to1')toDeck(1);else if(a==='to2')toDeck(2);else if(a==='fade')fade();
+ else if(a==='sk')send({t:'seek',d:+b.dataset.d});else if(a==='ppv')send({t:'toggle'});
+ else if(a==='pp')ppDeck(n);else if(a==='h'){const h=LS.get('dj_h',[])[i];$('#q').value=h.q;search(h.q)}});
+function ppDeck(n){const d=D[n];if(!d.id||d.pend)return;d.p.getPlayerState()===1?d.p.pauseVideo():d.p.playVideo()}
+document.addEventListener('keydown',e=>{if(MODE!=='aire'||$('#setup').classList.contains('on'))return;const typing=e.target.id==='q';
+ if(typing){if(e.key==='Enter'){const v=$('#q').value.trim();(sel>=0&&v===lastQ&&R[sel])?prev(R[sel]):search(v)}
+  else if(e.key==='ArrowDown'&&R.length){e.preventDefault();sel=Math.min(R.length-1,sel+1);renderR()}
+  else if(e.key==='ArrowUp'&&R.length){e.preventDefault();sel=Math.max(0,sel-1);renderR()}
+  else if(e.key==='Escape')e.target.blur();return}
+ if(e.ctrlKey||e.altKey||e.metaKey||e.target.tagName==='SELECT'||e.target.tagName==='INPUT')return;
+ const k=e.key.toLowerCase();let ok=true;
+ if(k==='/')$('#q').focus();else if(k===' ')send({t:'toggle'});
+ else if(k==='arrowleft')send({t:'seek',d:e.shiftKey?-15:-5});else if(k==='arrowright')send({t:'seek',d:e.shiftKey?15:5});
+ else if(k==='arrowdown'&&R.length){sel=Math.min(R.length-1,sel+1);renderR()}else if(k==='arrowup'&&R.length){sel=Math.max(0,sel-1);renderR()}
+ else if(k==='enter'&&R[sel])prev(R[sel]);else if(k==='1')toDeck(1);else if(k==='2')toDeck(2);
+ else if(k==='q')ppDeck(1);else if(k==='w')ppDeck(2);else if(k==='f')fade();else ok=false;
+ if(ok)e.preventDefault()});
+
+/* ---------- PREVIEW ---------- */
+let pl,cur={id:'',title:''};
+function bootPrev(){
+ $('#pvpage').style.display='block';$('#act').classList.add('on');$('#actb').onclick=()=>$('#act').classList.remove('on');
+ pl=new YT.Player('pv',{width:'100%',height:'100%',playerVars:{playsinline:1,rel:0},events:{onError:e=>toast('Ese video no se puede reproducir (error '+e.data+').')}});
+ peer=new Peer('djaire-'+ROOM+'-prev');
+ peer.on('open',tryConn);peer.on('disconnected',()=>peer.reconnect());peer.on('error',()=>{});
+ setInterval(()=>{if(!conn||!conn.open)tryConn()},3000);setInterval(report,300)}
+function setS(ok){const e=$('#pvs');e.textContent=ok?'Conectado al aire':'Sin conexión con el aire';e.className='pill'+(ok?' ok':'')}
+function tryConn(){if(!peer||!peer.open||(conn&&conn.open))return;if(conn)conn.close();
+ conn=peer.connect('djaire-'+ROOM+'-aire',{reliable:true});conn.on('open',()=>setS(true));conn.on('data',onCmd);conn.on('close',()=>setS(false))}
+function onCmd(m){if(!pl||!pl.getCurrentTime)return;
+ if(m.t==='load'){cur={id:m.id,title:m.title};$('#pvt').textContent=m.title;pl.loadVideoById({videoId:m.id,startSeconds:m.start||0})}
+ else if(m.t==='pause')pl.pauseVideo();else if(m.t==='play')pl.playVideo();
+ else if(m.t==='toggle')pl.getPlayerState()===1?pl.pauseVideo():pl.playVideo();
+ else if(m.t==='seek')pl.seekTo(Math.max(0,pl.getCurrentTime()+m.d),true);else if(m.t==='seekto')pl.seekTo(m.s,true)}
+function report(){if(conn&&conn.open&&pl&&pl.getCurrentTime)conn.send({t:'state',id:cur.id,title:cur.title,cur:pl.getCurrentTime(),dur:pl.getDuration(),playing:pl.getPlayerState()===1})}
+</script></body></html>
